@@ -1,0 +1,152 @@
+# Builds the Developer ID-signed mousekeys.app in CI — notarized too when the
+# notary secrets are set — packages it as a DMG, and ships it as a Homebrew Cask,
+# so users `brew install --cask eishexac/tap/mousekeys` and never compile.
+#
+# The .app is the product: it carries the daemon at Contents/MacOS/mousekeys,
+# and as a registered bundle macOS lists it in Accessibility and Login Items on
+# its own. Signing gives it a stable identity, so the Accessibility grant
+# survives upgrades.
+#
+# Required repository secrets:
+#   MACOS_CERT_P12        base64 of the Developer ID Application cert+key (.p12)
+#                         export: Keychain Access -> the identity -> Export .p12,
+#                         then: base64 -i cert.p12 | pbcopy
+#   MACOS_CERT_PASSWORD   the .p12 export password
+#   MACOS_SIGN_ID         the Developer ID identity to sign with, e.g.
+#                         "Developer ID Application: NAME (TEAMID)"
+#   KEYCHAIN_PASSWORD     any string; names the temporary CI keychain
+#   HOMEBREW_TAP_DEPLOY_KEY  private half of a read-write deploy key on
+#                            eishexac/homebrew-tap (scoped to just that repo)
+#   Optional (notarization via App Store Connect API key — no Apple ID / email):
+#   without these the app is signed but NOT notarized, and first launch needs a
+#   right-click > Open once:
+#     NOTARY_API_KEY        base64 of the .p8 private key
+#     NOTARY_API_KEY_ID     the key's Key ID
+#     NOTARY_API_ISSUER_ID  the App Store Connect issuer id (a UUID)
+#
+# Every release also gets a GitHub build-provenance attestation (SLSA) over the
+# shipped .app DMG, signed through OIDC — no secret required. Verify a download:
+#   gh attestation verify mousekeys_<version>.dmg --repo eishexac/mousekeys
+
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to build (e.g. v0.1.0)"
+        required: true
+
+permissions:
+  contents: write        # create the release and upload the app zip
+  id-token: write        # OIDC token the attestation action mints from
+  attestations: write    # write the build-provenance attestation to the repo
+
+env:
+  TAP_REPO: eishexac/homebrew-tap
+
+jobs:
+  app:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Resolve tag and version
+        id: v
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Import Developer ID certificate
+        env:
+          CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          CERT_PW: ${{ secrets.MACOS_CERT_PASSWORD }}
+          KEYCHAIN_PW: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          KC="$RUNNER_TEMP/mk.keychain-db"
+          echo "$CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$KEYCHAIN_PW" "$KC"
+          security set-keychain-settings -lut 3600 "$KC"
+          security unlock-keychain -p "$KEYCHAIN_PW" "$KC"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KC" -P "$CERT_PW" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PW" "$KC" >/dev/null
+          security list-keychains -d user -s "$KC" login.keychain-db
+          security find-identity -v -p codesigning "$KC" | grep "Developer ID Application"
+
+      - name: Build, sign, and package per-arch DMGs
+        id: pkg
+        env:
+          SIGN_ID: ${{ secrets.MACOS_SIGN_ID }}
+          # App Store Connect API key. NOTARY_API_KEY is the base64 of the .p8.
+          NKEY: ${{ secrets.NOTARY_API_KEY }}
+          NKEY_ID: ${{ secrets.NOTARY_API_KEY_ID }}
+          NISSUER: ${{ secrets.NOTARY_API_ISSUER_ID }}
+        run: |
+          V="${{ steps.v.outputs.version }}"
+          if [ -n "$NKEY" ]; then echo "$NKEY" | base64 --decode > "$RUNNER_TEMP/notary_key.p8"; fi
+          for ARCH in arm64 x86_64; do
+            rm -f build/mousekeysd    # force a fresh build for this arch
+            make sign-app MOUSEKEYS_CODESIGN_ID="$SIGN_ID" MACOS_ARCH="-arch $ARCH"
+            codesign --verify --strict build/mousekeys.app
+            DMG="$RUNNER_TEMP/mousekeys_${V}_${ARCH}.dmg"
+            # A DMG is a real filesystem image: it preserves the signed bundle
+            # exactly (no AppleDouble/xattr fragility a zip has) and staples cleanly.
+            hdiutil create -volname "mousekeys" -srcfolder build/mousekeys.app -ov -format UDZO "$DMG"
+            codesign --force --timestamp --sign "$SIGN_ID" "$DMG"
+            if [ -f "$RUNNER_TEMP/notary_key.p8" ]; then
+              xcrun notarytool submit "$DMG" \
+                --key "$RUNNER_TEMP/notary_key.p8" --key-id "$NKEY_ID" --issuer "$NISSUER" --wait
+              xcrun stapler staple "$DMG"
+            else
+              echo "no notary key — $ARCH signed but not notarized"
+            fi
+            echo "sha_${ARCH}=$(shasum -a 256 "$DMG" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+            ls -l "$DMG"
+          done
+
+      - name: Attest build provenance for the DMGs
+        # Signed SLSA provenance binding each DMG's digest to this workflow run,
+        # commit, and repo. Verify a download with:
+        #   gh attestation verify mousekeys_<version>_<arch>.dmg --repo eishexac/mousekeys
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: ${{ runner.temp }}/mousekeys_*.dmg
+
+      - name: Upload the DMGs to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.v.outputs.tag }}
+          VERSION: ${{ steps.v.outputs.version }}
+        run: |
+          # A pushed tag doesn't create a release; make one if it's missing.
+          gh release view "$TAG" >/dev/null 2>&1 \
+            || gh release create "$TAG" --title "mousekeys $VERSION" --generate-notes
+          gh release upload "$TAG" "$RUNNER_TEMP"/mousekeys_*.dmg --clobber
+
+      - name: Update the tap cask
+        env:
+          DEPLOY_KEY: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
+          VERSION: ${{ steps.v.outputs.version }}
+          SHA_ARM64: ${{ steps.pkg.outputs.sha_arm64 }}
+          SHA_X86_64: ${{ steps.pkg.outputs.sha_x86_64 }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/tap_key
+          chmod 600 ~/.ssh/tap_key
+          export GIT_SSH_COMMAND="ssh -i ~/.ssh/tap_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+          git clone "git@github.com:${TAP_REPO}.git" "$RUNNER_TEMP/tap"
+          mkdir -p "$RUNNER_TEMP/tap/Casks"
+          sed -e "s/@VERSION@/${VERSION}/" \
+              -e "s/@SHA_ARM64@/${SHA_ARM64}/" \
+              -e "s/@SHA_X86_64@/${SHA_X86_64}/" \
+            packaging/mousekeys.cask.rb > "$RUNNER_TEMP/tap/Casks/mousekeys.rb"
+          cd "$RUNNER_TEMP/tap"
+          git rm -q --ignore-unmatch Formula/mousekeys.rb   # the .app cask replaces the CLI bottle
+          git add Casks/mousekeys.rb
+          git config user.name "eishexac"
+          git config user.email "8811172+eishexac@users.noreply.github.com"
+          git commit -qm "mousekeys ${VERSION}: ship as a signed .app cask"
+          git push -q
