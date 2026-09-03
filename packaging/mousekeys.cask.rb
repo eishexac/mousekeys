@@ -32,6 +32,17 @@ cask "mousekeys" do
     system_command "/usr/bin/open", args: ["#{appdir}/mousekeys.app"]
   end
 
+  # Quit the running menu-bar app before removing it. The app clears its Caps
+  # Lock remap on exit (an atexit safety net covers this quit path too).
+  uninstall quit: "space.existin.mousekeys"
+
+  # `brew uninstall --zap` removes the app's own preferences. Your config in
+  # ~/.config/mousekeys is deliberately left alone — it is your overrides, kept
+  # across reinstalls.
+  zap trash: [
+    "~/Library/Preferences/space.existin.mousekeys.plist",
+  ]
+
   caveats <<~EOS
     mousekeys opens automatically after install and asks for Accessibility
     permission — a macOS requirement no installer can grant. Approve mousekeys at:
@@ -40,8 +51,9 @@ cask "mousekeys" do
     Then tap Caps Lock to enter mouse mode. Manage it from the menu-bar icon
     (Start at Login, Edit Config, Reload Config, Quit).
 
-    Config is created on first run and hot-reloads on save (no restart):
-      ~/.config/mousekeys/config
-    Drop-ins in ~/.config/mousekeys/config.d/*.conf are merged in sorted order.
+    Config is your overrides only — anything unset uses the built-in default.
+    Edit ~/.config/mousekeys/config (hot-reloads on save); see every option and
+    its default with `mousekeysd --print-default-config`. Drop-ins in
+    ~/.config/mousekeys/config.d/*.conf merge on top. Kept across uninstalls.
   EOS
 end
