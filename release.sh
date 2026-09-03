@@ -8,13 +8,13 @@
 # this in a terminal where gpg can prompt for the passphrase.
 #
 # Usage:
-#   scripts/release.sh            # tag v<VERSION> and push
-#   scripts/release.sh --retag    # replace an existing v<VERSION> tag
+#   ./release.sh                  # tag v<VERSION> and push
+#   ./release.sh --retag          # replace an existing v<VERSION> tag
 #
 # Bump the version in the Makefile (VERSION) before releasing.
 set -eu
 
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")"
 
 retag=0
 [ "${1:-}" = "--retag" ] && retag=1

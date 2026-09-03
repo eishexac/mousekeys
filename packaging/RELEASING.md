@@ -49,7 +49,7 @@ sha256. It then attests build provenance (SLSA) over both DMGs, uploads
 `mousekeys_<version>_arm64.dmg` and `mousekeys_<version>_x86_64.dmg` to the
 release, and rewrites `Casks/mousekeys.rb` in the tap with the new version and
 both sha256s under `on_arm`/`on_intel` (dropping the old CLI formula).
-`scripts/release.sh` automates the bump/tag/push; `--retag` replaces an existing
+`./release.sh` automates the bump/tag/push; `--retag` replaces an existing
 tag.
 
 Re-run for an existing tag without re-tagging: `gh workflow run release.yml -f
