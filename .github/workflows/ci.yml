@@ -1,0 +1,30 @@
+name: ci
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+
+jobs:
+  # Core unit tests are platform-independent — run them everywhere.
+  core-tests:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: make check
+        run: make check
+
+  # The full daemon builds on macOS.
+  macos-build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: make build
+        run: make build
+      - name: smoke test
+        run: |
+          ./build/mousekeysd --version
+          ./build/mousekeysd --print-default-config | grep -q '\[movement\]'
