@@ -674,6 +674,7 @@ void trust_monitor_cb(CFRunLoopTimerRef, void*) {
 // or symlinked run may have left behind.
 void deregister_login() {
   if (in_app_bundle()) app_set_login(false);
+  app_reset_autoenable_guard();  // so a reinstall auto-enables again
   remove_login_agent();
 }
 
