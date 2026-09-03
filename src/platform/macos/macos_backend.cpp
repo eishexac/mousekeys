@@ -648,6 +648,10 @@ void trust_monitor_cb(CFRunLoopTimerRef, void*) {
 
 }  // namespace
 
+// Used by `--deregister-login` (the cask uninstall runs it before removing the
+// app): drops the SMAppService login item / LaunchAgent so nothing lingers.
+void deregister_login() { set_login(false); }
+
 int run_backend(const ConfigSource& cfg, bool foreground) {
   // Bare binary only: a plain run sets up the login agent and hands off to
   // launchd. Inside a .app, run directly (LaunchServices already gave us the

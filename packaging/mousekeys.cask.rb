@@ -32,9 +32,14 @@ cask "mousekeys" do
     system_command "/usr/bin/open", args: ["#{appdir}/mousekeys.app"]
   end
 
-  # Quit the running menu-bar app before removing it. The app clears its Caps
-  # Lock remap on exit (an atexit safety net covers this quit path too).
-  uninstall quit: "space.existin.mousekeys"
+  # Deregister the login item (only the app itself can unregister its own
+  # SMAppService item), then quit it. The app also clears its Caps Lock remap on
+  # exit (an atexit safety net covers this quit path too).
+  uninstall early_script: {
+              executable: "#{appdir}/mousekeys.app/Contents/MacOS/mousekeys",
+              args:       ["--deregister-login"],
+            },
+            quit: "space.existin.mousekeys"
 
   # `brew uninstall --zap` removes the app's own preferences. Your config in
   # ~/.config/mousekeys is deliberately left alone — it is your overrides, kept

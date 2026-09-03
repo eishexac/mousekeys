@@ -24,4 +24,9 @@ struct ConfigSource {
 // Platforms without a login-agent concept (Linux/dom0) ignore it.
 int run_backend(const ConfigSource& cfg, bool foreground);
 
+// Unregister the login item and exit — used by the cask's uninstall before the
+// app is removed, so it does not linger in Login Items. (A normal quit must not
+// do this, or it would disable Start-at-Login every time the app quits.)
+void deregister_login();
+
 }  // namespace mk

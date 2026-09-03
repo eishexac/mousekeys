@@ -67,6 +67,9 @@ int main(int argc, char** argv) {
     } else if (a == "--print-default-config") {
       fputs(mk::default_config_text(), stdout);
       return 0;
+    } else if (a == "--deregister-login") {
+      mk::deregister_login();  // internal: the cask uninstall calls this
+      return 0;
     } else if (a == "--version") {
       printf("mousekeysd %s\n", MK_VERSION);
       return 0;
