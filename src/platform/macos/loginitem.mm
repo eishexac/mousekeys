@@ -20,4 +20,13 @@ bool app_set_login(bool on) {
   return false;
 }
 
+void app_autoenable_login_once() {
+  if (@available(macOS 13.0, *)) {
+    NSUserDefaults *d = [NSUserDefaults standardUserDefaults];
+    if ([d boolForKey:@"MKAutoLoginDone"]) return;  // only the very first launch
+    [SMAppService.mainAppService registerAndReturnError:nil];
+    [d setBool:YES forKey:@"MKAutoLoginDone"];
+  }
+}
+
 }  // namespace mk

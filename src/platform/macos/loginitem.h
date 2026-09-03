@@ -7,4 +7,7 @@
 namespace mk {
 bool app_login_enabled();   // true if registered as a login item
 bool app_set_login(bool on);  // register / unregister; returns success
+// Enable "start at login" once, on the app's first launch, so a fresh install
+// runs at every login without a manual toggle. A later manual disable sticks.
+void app_autoenable_login_once();
 }  // namespace mk

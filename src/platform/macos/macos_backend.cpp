@@ -659,6 +659,11 @@ int run_backend(const ConfigSource& cfg, bool foreground) {
   g->out = new MacOutput();
   g->cfg = cfg;
 
+  // First launch of the .app enables Start at Login once, so a fresh install
+  // runs at every login without a manual toggle (the bare binary does the
+  // equivalent in register_and_launch). A later manual disable is respected.
+  if (in_app_bundle()) app_autoenable_login_once();
+
   // Must exist before the event tap and run loop: it creates the
   // NSApplication whose event loop we run below.
   menubar_init({&reload, &menu_quit, &menu_edit_config, &login_enabled, &set_login});
