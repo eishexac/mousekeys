@@ -40,10 +40,13 @@ active, a dot when latched, a slash when Accessibility is off.
 
 ## Configure
 
-Configuration lives in `~/.config/mousekeys/` (honors `$XDG_CONFIG_HOME`). A
-commented default `config` is written on first run; edit and save and it
-reloads automatically — no restart (or use the menu's **Edit Config**).
-Regenerate the default any time:
+Configuration lives in `~/.config/mousekeys/` (honors `$XDG_CONFIG_HOME`) and is
+**your overrides only** — anything you don't set uses the built-in default,
+which stays current across upgrades. First run writes a short stub `config` to
+edit; save and it reloads automatically — no restart (or use the menu's **Edit
+Config**). It's kept across uninstalls.
+
+See every option and its default — copy the lines you want to change:
 
 ```sh
 mousekeysd --print-default-config

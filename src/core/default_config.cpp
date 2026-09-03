@@ -66,4 +66,27 @@ alert_position = center
 )CFG";
 }
 
+const char* config_stub_text() {
+  return
+R"CFG(# mousekeys config — your overrides only.
+#
+# Anything you do not set here uses the built-in default, which stays current
+# across upgrades. Set only the keys you want to change. Sections and keys are
+# case-insensitive; bindings are comma lists ("primary[, secondary]"). Saving
+# hot-reloads (no restart); files in config.d/*.conf merge on top, sorted.
+#
+# See every option with its default, to copy the lines you want to change:
+#     mousekeysd --print-default-config
+#
+# Example — WASD movement and space to click:
+#   [movement]
+#   up = w
+#   down = s
+#   left = a
+#   right = d
+#   [click]
+#   left = space
+)CFG";
+}
+
 }  // namespace mk

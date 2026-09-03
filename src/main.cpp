@@ -113,9 +113,10 @@ int main(int argc, char** argv) {
     return mk::run_backend(cfg, foreground);
   }
 
-  // Default: a per-user config directory, seeded once on first run. Root
-  // (the system/headless case, e.g. dom0) reads /etc/mousekeys instead and
-  // is never seeded into a home directory.
+  // Default: a per-user config directory. On first run seed only an
+  // "overrides only" stub — the built-in defaults do the rest, so nothing is
+  // duplicated and upgrades stay current. Root (the system/headless case, e.g.
+  // dom0) reads /etc/mousekeys instead and is never seeded into a home dir.
   std::string home = config_home();
   std::string userdir = home.empty() ? "" : home + "/mousekeys";
 
@@ -123,8 +124,8 @@ int main(int argc, char** argv) {
     cfg.dir = userdir;
   } else if (!userdir.empty() && geteuid() != 0) {
     mkdirs(userdir);
-    if (write_file(userdir + "/config", mk::default_config_text()))
-      fprintf(stderr, "mousekeysd: wrote default config to %s/config\n",
+    if (write_file(userdir + "/config", mk::config_stub_text()))
+      fprintf(stderr, "mousekeysd: wrote config stub to %s/config\n",
               userdir.c_str());
     cfg.dir = userdir;  // even if the write failed, watch it for a later add
   } else if (is_dir("/etc/mousekeys")) {
