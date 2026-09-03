@@ -14,7 +14,7 @@
 # original macOS implementation and still works; this native build is its
 # replacement and the only implementation for Linux.
 
-VERSION := 0.1.1
+VERSION := 0.1.2
 
 CXX      ?= c++
 CXXFLAGS ?= -std=c++17 -O2 -Wall -Wextra

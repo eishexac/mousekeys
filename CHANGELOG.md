@@ -4,6 +4,19 @@ All notable changes to mousekeys are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] — 2026-09-03
+
+### Added
+- The daemon is now on your `PATH` as `mousekeysd` (the cask symlinks the app's
+  binary), so `mousekeysd --print-default-config` — the command the install
+  caveats point at — works from the shell.
+
+### Fixed
+- `brew uninstall` now deregisters the Start-at-Login item before removing the
+  app, instead of leaving an orphaned entry in Login Items. Only the app itself
+  can unregister its `SMAppService` item, so the cask runs it with
+  `--deregister-login` first.
+
 ## [0.1.1] — 2026-09-03
 
 ### Changed
@@ -36,5 +49,6 @@ Initial release.
   (arm64 + x86_64) DMGs, each with a GitHub SLSA build-provenance attestation.
 - INI-style config with hot-reload and `~/.config/mousekeys/config.d/` drop-ins.
 
+[0.1.2]: https://github.com/eishexac/mousekeys/releases/tag/v0.1.2
 [0.1.1]: https://github.com/eishexac/mousekeys/releases/tag/v0.1.1
 [0.1.0]: https://github.com/eishexac/mousekeys/releases/tag/v0.1.0
