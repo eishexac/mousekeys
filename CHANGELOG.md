@@ -4,6 +4,18 @@ All notable changes to mousekeys are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3] — 2026-09-03
+
+### Fixed
+- The `mousekeysd` symlink added in 0.1.2 could make the daemon think it was a
+  bare binary (bundle detection keyed off the invoked path, not the real one),
+  so running `mousekeysd` self-registered a stray LaunchAgent that ran a second
+  instance at login and survived uninstall. Bundle detection now resolves the
+  real executable path, so the symlink is handled as the `.app` it points into.
+- `--deregister-login` now clears **both** login mechanisms (the SMAppService
+  item and any legacy LaunchAgent), and the `.app` boots out and deletes a stray
+  LaunchAgent on launch — so machines affected by the 0.1.2 issue self-heal.
+
 ## [0.1.2] — 2026-09-03
 
 ### Added
@@ -49,6 +61,7 @@ Initial release.
   (arm64 + x86_64) DMGs, each with a GitHub SLSA build-provenance attestation.
 - INI-style config with hot-reload and `~/.config/mousekeys/config.d/` drop-ins.
 
+[0.1.3]: https://github.com/eishexac/mousekeys/releases/tag/v0.1.3
 [0.1.2]: https://github.com/eishexac/mousekeys/releases/tag/v0.1.2
 [0.1.1]: https://github.com/eishexac/mousekeys/releases/tag/v0.1.1
 [0.1.0]: https://github.com/eishexac/mousekeys/releases/tag/v0.1.0
