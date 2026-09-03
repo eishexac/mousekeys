@@ -25,6 +25,8 @@ cask "mousekeys" do
   depends_on macos: :ventura  # minimum; SMAppService login item needs macOS 13+
 
   app "mousekeys.app"
+  # Expose the daemon on the CLI, e.g. `mousekeysd --print-default-config`.
+  binary "#{appdir}/mousekeys.app/Contents/MacOS/mousekeys", target: "mousekeysd"
 
   # Launch it right after install so it prompts for Accessibility immediately.
   # The app is notarized, so Gatekeeper doesn't block the auto-open.
