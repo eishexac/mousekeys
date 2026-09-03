@@ -224,14 +224,17 @@ CFMachPortRef g_tap = nullptr;         // active event tap, or null while blocke
 CFRunLoopSourceRef g_tap_src = nullptr;
 
 void update_ui();  // defined below; tap_cb calls it before it appears
+std::string exec_path();  // defined below
 
-// True when running inside a .app bundle (has a CFBundleIdentifier from
-// Contents/Info.plist). LaunchServices runs an .app as a real app, so TCC
-// lists it automatically and login is handled by SMAppService — no LaunchAgent
-// handoff. A bare binary has no bundle id.
+// True when this binary lives inside a .app bundle. Determined from the real
+// executable path (symlinks resolved), not CFBundleGetMainBundle(): that keys
+// off the *invoked* path, so launched through the `mousekeysd` symlink the cask
+// installs it reports "no bundle" and we'd wrongly take the bare-binary path and
+// self-register a stray LaunchAgent. LaunchServices runs an .app as a real app,
+// so TCC lists it automatically and login is handled by SMAppService — no
+// LaunchAgent handoff.
 bool in_app_bundle() {
-  CFBundleRef mb = CFBundleGetMainBundle();
-  return mb && CFBundleGetIdentifier(mb) != nullptr;
+  return exec_path().find(".app/Contents/MacOS/") != std::string::npos;
 }
 
 // The config files to load right now. Re-scanned from the directory on each
@@ -502,6 +505,23 @@ void set_login(bool on) {
   }
 }
 
+// Boot out and delete a stray LaunchAgent, if one exists. Inside the .app this
+// only ever cleans up an agent left by a bare run (an older build, or a run
+// through the mousekeysd symlink before in_app_bundle() was path-based): the
+// .app itself uses SMAppService and never writes one. The label targeted here
+// is the LaunchAgent's own — the SMAppService instance runs under a different
+// launchd label (application.space.existin.mousekeys.*), so it is untouched.
+void remove_login_agent() {
+  std::string p = login_plist_path();
+  if (p.empty() || access(p.c_str(), F_OK) != 0) return;  // nothing to clean
+  std::string uid = std::to_string(getuid());
+  int rc = system(
+      ("launchctl bootout gui/" + uid + "/space.existin.mousekeys 2>/dev/null")
+          .c_str());
+  (void)rc;
+  remove(p.c_str());
+}
+
 // A manual `mousekeysd` run (not launched by our LaunchAgent) is treated as
 // setup: register the login item and start the managed instance under
 // launchd, then exit. This is the bare-binary equivalent of a .app login
@@ -649,8 +669,13 @@ void trust_monitor_cb(CFRunLoopTimerRef, void*) {
 }  // namespace
 
 // Used by `--deregister-login` (the cask uninstall runs it before removing the
-// app): drops the SMAppService login item / LaunchAgent so nothing lingers.
-void deregister_login() { set_login(false); }
+// app): drop every login mechanism so nothing lingers. Unregisters the .app's
+// SMAppService item and also boots out + deletes any legacy LaunchAgent a bare
+// or symlinked run may have left behind.
+void deregister_login() {
+  if (in_app_bundle()) app_set_login(false);
+  remove_login_agent();
+}
 
 int run_backend(const ConfigSource& cfg, bool foreground) {
   // Bare binary only: a plain run sets up the login agent and hands off to
@@ -666,7 +691,12 @@ int run_backend(const ConfigSource& cfg, bool foreground) {
   // First launch of the .app enables Start at Login once, so a fresh install
   // runs at every login without a manual toggle (the bare binary does the
   // equivalent in register_and_launch). A later manual disable is respected.
-  if (in_app_bundle()) app_autoenable_login_once();
+  // Also clear any stray LaunchAgent a pre-fix bare/symlinked run may have left,
+  // so it can't launch a duplicate at login alongside the SMAppService instance.
+  if (in_app_bundle()) {
+    remove_login_agent();
+    app_autoenable_login_once();
+  }
 
   // Must exist before the event tap and run loop: it creates the
   // NSApplication whose event loop we run below.
