@@ -4,6 +4,18 @@ All notable changes to mousekeys are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.4] — 2026-09-03
+
+### Fixed
+- Start at Login could silently stay off after a fresh install: the first-launch
+  auto-enable ignored a failed `SMAppService` register yet still marked itself
+  done, so it never retried. It now records "done" only when the register
+  succeeds, and retries on the next launch otherwise.
+- A plain `brew uninstall` kept the "already auto-enabled once" guard in app
+  prefs, so a later reinstall would not re-enable Start at Login. Uninstall now
+  clears that guard (matching what `--zap` already did), so a reinstall behaves
+  like a fresh install.
+
 ## [0.1.3] — 2026-09-03
 
 ### Fixed
