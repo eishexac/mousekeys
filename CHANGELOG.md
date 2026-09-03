@@ -6,10 +6,19 @@ All notable changes to mousekeys are recorded here. The format follows
 
 ## [0.1.1] — 2026-09-03
 
+### Changed
+- Config is now **overrides only**: first run seeds a short stub instead of the
+  full default, so `~/.config/mousekeys/config` holds just your changes and the
+  built-in defaults stay current across upgrades. See them all with
+  `mousekeysd --print-default-config`. Your config is kept on uninstall — even
+  `brew uninstall --zap` leaves it alone.
+
 ### Fixed
-- The app now enables **Start at Login** on its first launch, so a fresh
-  `brew install` runs at every login without a manual toggle. A later manual
-  disable is respected (it only auto-enables once).
+- Enable **Start at Login** on the app's first launch, so a fresh `brew install`
+  runs at every login without a manual toggle (auto-enabled once; a later manual
+  disable is respected).
+- `brew uninstall` now quits the running menu-bar app, and Caps Lock is restored
+  on any exit — an `atexit` safety net covers the Quit event brew sends.
 
 ## [0.1.0] — 2026-09-03
 
