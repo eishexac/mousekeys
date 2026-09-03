@@ -680,6 +680,10 @@ int run_backend(const ConfigSource& cfg, bool foreground) {
   signal(SIGHUP, on_hup);
   signal(SIGINT, on_quit);
   signal(SIGTERM, on_quit);
+  // Safety net: restore Caps Lock on any graceful exit, including a Quit Apple
+  // event (what `brew uninstall` sends) that terminates NSApp via exit() and so
+  // skips the post-run-loop cleanup below.
+  atexit(clear_remap);
   CFRunLoopTimerContext tctx = {0, nullptr, nullptr, nullptr, nullptr};
   CFRunLoopTimerRef hup_timer = CFRunLoopTimerCreate(
       kCFAllocatorDefault, 0, 0.25, 0, 0, hup_check_cb, &tctx);
